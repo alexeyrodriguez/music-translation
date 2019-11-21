@@ -41,12 +41,12 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_model(args):
+def load_model(checkpoint, batch_size, rate, decoder_ids=range(2)):
     decoder_ids = range(2)
-    checkpoints = ['{}/{}_{}.pth'.format(args.checkpoint.parent, args.checkpoint.name, i) for i in decoder_ids]
+    checkpoints = ['{}/{}_{}.pth'.format(checkpoint.parent, checkpoint.name, i) for i in decoder_ids]
     assert len(checkpoints) >= 1, "No checkpoints found."
 
-    model_args = torch.load(args.checkpoint.parent / 'args.pth')[0]
+    model_args = torch.load(checkpoint.parent / 'args.pth')[0]
     encoder = wavenet_models.Encoder(model_args)
     encoder.load_state_dict(torch.load(checkpoints[0])['encoder_state'])
     encoder.eval()
@@ -58,7 +58,7 @@ def load_model(args):
         decoder.load_state_dict(torch.load(checkpoint)['decoder_state'])
         decoder.eval()
         decoder = decoder.cuda()
-        decoder = WavenetGenerator(decoder, args.batch_size, wav_freq=args.rate)
+        decoder = WavenetGenerator(decoder, batch_size, wav_freq=rate)
         decoders.append(decoder)
 
     return encoder, zip(decoder_ids, decoders)
@@ -105,7 +105,7 @@ def translate(batch_size, split_size, encoder, decoders, audio_data):
 
 def main(args):
     print('Starting')
-    encoder, decoders = load_model(args)
+    encoder, decoders = load_model(args.checkpoint, args.batch_size, args.rate)
     audio_data = load_wav(args.file)[:, :, :10000]
     print(audio_data.size())
 
