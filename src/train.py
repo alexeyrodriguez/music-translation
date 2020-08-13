@@ -148,17 +148,17 @@ class Trainer:
         self.eval_total = LossMeter('eval total')
 
         self.use_waveglow_decoder = args.waveglow_decoder
-        self.waveglow_config = None
+        waveglow_config = None
 
         if self.use_waveglow_decoder:
             with open(args.waveglow_config) as f:
-                self.waveglow_config = json.loads(f.read())
+                waveglow_config = json.loads(f.read())
 
         self.encoder = Encoder(args)
         self.discriminator = ZDiscriminator(args)
 
         if self.use_waveglow_decoder:
-            self.decoder = WaveGlow(**self.waveglow_config)
+            self.decoder = WaveGlow(**waveglow_config)
             self.criterion = WaveGlowLoss()
         else:
             self.decoder = WaveNet(args)
