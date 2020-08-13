@@ -148,6 +148,7 @@ class Trainer:
         self.eval_total = LossMeter('eval total')
 
         self.use_waveglow_decoder = args.waveglow_decoder
+        self.waveglow_config = None
 
         if self.use_waveglow_decoder:
             with open(args.waveglow_config) as f:
