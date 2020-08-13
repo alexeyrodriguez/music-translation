@@ -157,7 +157,7 @@ class Trainer:
         self.discriminator = ZDiscriminator(args)
 
         if self.use_waveglow_decoder:
-            self.decoder = WaveGlow(**self.waveglow_config['waveglow_config'])
+            self.decoder = WaveGlow(**self.waveglow_config)
             self.criterion = WaveGlowLoss()
         else:
             self.decoder = WaveNet(args)
