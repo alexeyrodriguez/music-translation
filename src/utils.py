@@ -49,6 +49,11 @@ def inv_mu_law(x, mu=255.0):
     return numpy.sign(y) * (1./mu) * ((1. + mu)**numpy.abs(y) - 1.)
 
 
+def cuda_inv_mu_law(x, mu=255.0):
+    y = 2. * (x - (mu+1.)/2.) / (mu+1.)
+    return torch.sign(y) * (1./mu) * ((1. + mu)**torch.abs(y) - 1.)
+
+
 class LossMeter(object):
     def __init__(self, name):
         self.name = name

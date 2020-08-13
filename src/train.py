@@ -15,6 +15,7 @@ torch.multiprocessing.set_start_method('spawn', force=True)
 
 import os
 import argparse
+import json
 from itertools import chain
 import numpy as np
 from pathlib import Path
@@ -23,7 +24,9 @@ from tqdm import tqdm
 from data import DatasetSet
 from wavenet import WaveNet
 from wavenet_models import cross_entropy_loss, Encoder, ZDiscriminator
-from utils import create_output_dir, LossMeter, wrap
+from utils import create_output_dir, LossMeter, wrap, cuda_inv_mu_law
+
+from glow import WaveGlow, WaveGlowLoss
 
 parser = argparse.ArgumentParser(description='PyTorch Code for A Universal Music Translation Network')
 # Env options:
@@ -114,6 +117,13 @@ parser.add_argument('--p-dropout-discriminator', type=float, default=0.0,
 parser.add_argument('--grad-clip', type=float,
                     help='If specified, clip gradients with specified magnitude')
 
+# waveglow decoder
+parser.add_argument('--waveglow-decoder', action='store_true',
+                    help='Enable waveglow decoder')
+parser.add_argument('--waveglow-config',
+                    metavar='C', type=Path, help='Waveglow configuration file path')
+
+
 
 class Trainer:
     def __init__(self, args):
@@ -137,9 +147,18 @@ class Trainer:
         self.eval_d_right = LossMeter('eval d')
         self.eval_total = LossMeter('eval total')
 
+        if args.waveglow_decoder:
+            with open(args.waveglow_config) as f:
+                self.waveglow_config = json.loads(f.read())
+
         self.encoder = Encoder(args)
-        self.decoder = WaveNet(args)
         self.discriminator = ZDiscriminator(args)
+
+        if args.waveglow_decoder:
+            self.decoder = WaveGlow(**self.waveglow_config['waveglow_config'])
+            self.criterion = WaveGlowLoss()
+        else:
+            self.decoder = WaveNet(args)
 
         if args.checkpoint:
             checkpoint_args_path = os.path.dirname(args.checkpoint) + '/args.pth'
@@ -185,8 +204,15 @@ class Trainer:
         x, x_aug = x.float(), x_aug.float()
 
         z = self.encoder(x)
-        y = self.decoder(x, z)
         z_logits = self.discriminator(z)
+
+        if args.waveglow_decoder:
+            x_orig = cuda_inv_mu_law(x)
+            outputs = self.decoder((z, x_orig))
+            recon_loss = self.criterion(outputs)
+        else:
+            y = self.decoder(x, z)
+            recon_loss = cross_entropy_loss(y, x)
 
         z_classification = torch.max(z_logits, dim=1)[1]
 
@@ -196,7 +222,6 @@ class Trainer:
 
         # discriminator_right = F.cross_entropy(z_logits, dset_num).mean()
         discriminator_right = F.cross_entropy(z_logits, torch.tensor([dset_num] * x.size(0)).long().cuda()).mean()
-        recon_loss = cross_entropy_loss(y, x)
 
         self.evals_recon[dset_num].add(recon_loss.data.cpu().numpy().mean())
 
@@ -224,7 +249,6 @@ class Trainer:
 
         # optimize G - reconstructs well, discriminator wrong
         z = self.encoder(x_aug)
-        y = self.decoder(x, z)
         z_logits = self.discriminator(z)
         discriminator_wrong = - F.cross_entropy(z_logits, torch.tensor([dset_num] * x.size(0)).long().cuda()).mean()
 
@@ -232,7 +256,14 @@ class Trainer:
             self.logger.debug(f'z_logits: {z_logits.detach().cpu().numpy()}')
             self.logger.debug(f'dset_num: {dset_num}')
 
-        recon_loss = cross_entropy_loss(y, x)
+        if args.waveglow_decoder:
+            x_orig = cuda_inv_mu_law(x)
+            outputs = self.decoder((z, x_orig))
+            recon_loss = self.criterion(outputs)
+        else:
+            y = self.decoder(x, z)
+            recon_loss = cross_entropy_loss(y, x)
+
         self.losses_recon[dset_num].add(recon_loss.data.cpu().numpy().mean())
 
         loss = (recon_loss.mean() + self.args.d_lambda * discriminator_wrong)
