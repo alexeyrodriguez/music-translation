@@ -147,14 +147,16 @@ class Trainer:
         self.eval_d_right = LossMeter('eval d')
         self.eval_total = LossMeter('eval total')
 
-        if args.waveglow_decoder:
+        self.use_waveglow_decoder = args.waveglow_decoder
+
+        if self.use_waveglow_decoder:
             with open(args.waveglow_config) as f:
                 self.waveglow_config = json.loads(f.read())
 
         self.encoder = Encoder(args)
         self.discriminator = ZDiscriminator(args)
 
-        if args.waveglow_decoder:
+        if self.use_waveglow_decoder:
             self.decoder = WaveGlow(**self.waveglow_config['waveglow_config'])
             self.criterion = WaveGlowLoss()
         else:
@@ -206,7 +208,7 @@ class Trainer:
         z = self.encoder(x)
         z_logits = self.discriminator(z)
 
-        if args.waveglow_decoder:
+        if self.use_waveglow_decoder:
             x_orig = cuda_inv_mu_law(x)
             outputs = self.decoder((z, x_orig))
             recon_loss = self.criterion(outputs)
@@ -256,7 +258,7 @@ class Trainer:
             self.logger.debug(f'z_logits: {z_logits.detach().cpu().numpy()}')
             self.logger.debug(f'dset_num: {dset_num}')
 
-        if args.waveglow_decoder:
+        if self.use_waveglow_decoder:
             x_orig = cuda_inv_mu_law(x)
             outputs = self.decoder((z, x_orig))
             recon_loss = self.criterion(outputs)
