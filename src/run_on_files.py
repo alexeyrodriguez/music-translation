@@ -20,6 +20,8 @@ from wavenet import WaveNet
 from wavenet_generator import WavenetGenerator
 from nv_wavenet_generator import NVWavenetGenerator
 
+from glow import WaveGlow, WaveGlowLoss
+
 
 def parse_args():
     parser = ArgumentParser()
@@ -42,6 +44,8 @@ def parse_args():
     parser.add_argument('--output-next-to-orig', action='store_true')
     parser.add_argument('--skip-filter', action='store_true')
     parser.add_argument('--py', action='store_true', help='Use python generator')
+    parser.add_argument('--waveglow-decoder', action='store_true',
+                        help='Enable waveglow decoder')
 
     return parser.parse_args()
 
@@ -65,17 +69,26 @@ def main(args):
     encoder.eval()
     encoder = encoder.cuda()
 
+    if model_args.waveglow_decoder:
+        with open(model_args.waveglow_config) as f:
+            waveglow_config = json.loads(f.read())
+
     decoders = []
     decoder_ids = []
     for checkpoint in checkpoints:
-        decoder = WaveNet(model_args)
-        decoder.load_state_dict(torch.load(checkpoint)['decoder_state'])
-        decoder.eval()
-        decoder = decoder.cuda()
-        if args.py:
-            decoder = WavenetGenerator(decoder, args.batch_size, wav_freq=args.rate)
+        if model_args.waveglow_decoder:
+            self.decoder = WaveGlow(**waveglow_config)
+            self.criterion = WaveGlowLoss()
+
         else:
-            decoder = NVWavenetGenerator(decoder, args.rate * (args.split_size // 20), args.batch_size, 3)
+            decoder = WaveNet(model_args)
+            decoder.load_state_dict(torch.load(checkpoint)['decoder_state'])
+            decoder.eval()
+            decoder = decoder.cuda()
+            if args.py:
+                decoder = WavenetGenerator(decoder, args.batch_size, wav_freq=args.rate)
+            else:
+                decoder = NVWavenetGenerator(decoder, args.rate * (args.split_size // 20), args.batch_size, 3)
 
         decoders += [decoder]
         decoder_ids += [extract_id(checkpoint)]
@@ -116,7 +129,11 @@ def main(args):
     print(f'xs size: {xs.size()}')
 
     def save(x, decoder_ix, filepath):
-        wav = utils.inv_mu_law(x.cpu().numpy())
+        if model_args.waveglow_decoder:
+            wav = x
+        else:
+            wav = utils.inv_mu_law(x.cpu().numpy())
+
         print(f'X size: {x.shape}')
         print(f'X min: {x.min()}, max: {x.max()}')
 
@@ -125,32 +142,43 @@ def main(args):
         else:
             save_audio(wav.squeeze(), args.output / str(decoder_ix) / filepath.with_suffix('.wav').name, rate=args.rate)
 
-    yy = {}
-    with torch.no_grad():
-        zz = []
-        for xs_batch in torch.split(xs, args.batch_size):
-            zz += [encoder(xs_batch)]
-        zz = torch.cat(zz, dim=0)
+    if args.waveglow_decoder:
+        for i, decoder_id in enumerate(decoder_ids):
+            decoder = decoders[i]
+            for x, filepath in zip(xs, file_paths):
+                with torch.no_grad():
+                    z = encoder(x)
+                    print(f'Z min: {z.min()}, max: {z.max()}')
+                    y = decoder.infer(z, 1.0)
+                    save(y, decoder_id, filepath)
+        
+    else:
+        yy = {}
+        with torch.no_grad():
+            zz = []
+            for xs_batch in torch.split(xs, args.batch_size):
+                zz += [encoder(xs_batch)]
+            zz = torch.cat(zz, dim=0)
 
-        with utils.timeit("Generation timer"):
-            for i, decoder_id in enumerate(decoder_ids):
-                yy[decoder_id] = []
-                decoder = decoders[i]
-                for zz_batch in torch.split(zz, args.batch_size):
-                    print(zz_batch.shape)
-                    splits = torch.split(zz_batch, args.split_size, -1)
-                    audio_data = []
-                    decoder.reset()
-                    for cond in tqdm.tqdm(splits):
-                        audio_data += [decoder.generate(cond).cpu()]
-                    audio_data = torch.cat(audio_data, -1)
-                    yy[decoder_id] += [audio_data]
-                yy[decoder_id] = torch.cat(yy[decoder_id], dim=0)
-                del decoder
+            with utils.timeit("Generation timer"):
+                for i, decoder_id in enumerate(decoder_ids):
+                    yy[decoder_id] = []
+                    decoder = decoders[i]
+                    for zz_batch in torch.split(zz, args.batch_size):
+                        print(zz_batch.shape)
+                        splits = torch.split(zz_batch, args.split_size, -1)
+                        audio_data = []
+                        decoder.reset()
+                        for cond in tqdm.tqdm(splits):
+                            audio_data += [decoder.generate(cond).cpu()]
+                        audio_data = torch.cat(audio_data, -1)
+                        yy[decoder_id] += [audio_data]
+                    yy[decoder_id] = torch.cat(yy[decoder_id], dim=0)
+                    del decoder
 
-    for decoder_ix, decoder_result in yy.items():
-        for sample_result, filepath in zip(decoder_result, file_paths):
-            save(sample_result, decoder_ix, filepath)
+        for decoder_ix, decoder_result in yy.items():
+            for sample_result, filepath in zip(decoder_result, file_paths):
+                save(sample_result, decoder_ix, filepath)
 
 
 if __name__ == '__main__':

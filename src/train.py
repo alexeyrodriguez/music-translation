@@ -163,6 +163,7 @@ class Trainer:
             self.decoder = WaveNet(args)
 
         if args.checkpoint:
+            # Missing loading for WaveGlow
             checkpoint_args_path = os.path.dirname(args.checkpoint) + '/args.pth'
             checkpoint_args = torch.load(checkpoint_args_path)
 
