@@ -80,6 +80,7 @@ def main(args):
         if model_args.waveglow_decoder:
             decoder = WaveGlow(**waveglow_config)
             decoder.load_state_dict(torch.load(checkpoint)['decoder_state'])
+            decoder.remove_weightnorm(decoder)
             decoder.eval()
             decoder = decoder.cuda()
 
