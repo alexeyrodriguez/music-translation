@@ -78,8 +78,10 @@ def main(args):
     decoder_ids = []
     for checkpoint in checkpoints:
         if model_args.waveglow_decoder:
-            self.decoder = WaveGlow(**waveglow_config)
-            self.criterion = WaveGlowLoss()
+            decoder = WaveGlow(**waveglow_config)
+            decoder.load_state_dict(torch.load(checkpoint)['decoder_state'])
+            decoder.eval()
+            decoder = decoder.cuda()
 
         else:
             decoder = WaveNet(model_args)
