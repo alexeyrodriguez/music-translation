@@ -12,6 +12,7 @@ from argparse import ArgumentParser
 import matplotlib
 import h5py
 import tqdm
+import json
 
 import utils
 import wavenet_models
