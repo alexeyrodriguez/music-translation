@@ -133,7 +133,7 @@ def main(args):
 
     def save(x, decoder_ix, filepath):
         if model_args.waveglow_decoder:
-            wav = x
+            wav = x.cpu().numpy()
         else:
             wav = utils.inv_mu_law(x.cpu().numpy())
 
