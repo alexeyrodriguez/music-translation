@@ -1,3 +1,19 @@
+# Glow decoder based Music Translation
+
+This repository is a modified version of the Universal Music Translation Network (scroll further down to read original readme).
+
+The original Music Translation code uses a Wavenet-based decoder to generate waveforms. Because the inference based on Wavenet
+is very slow, we replaced the decoder to use the WaveGlow decoder instead. This project uses a slightly modified version of
+WaveGlow, for the original WaveGlow project refer to [this repository](https://github.com/NVIDIA/waveglow).
+
+The following modifications to the Music Translations codebase were done to make it work with WaveGlow:
+* The audio sample fed to the translator during training is mu-law transformed and discretized.
+  For WaveGlow training, this training sample is transformed back to the -1 to 1 range.
+  Unfortunately this means that some resolution is lost at the moment.
+  I plan to change the loaders to make the mu-law and discretization to make it optional.
+* We use the mel size configuration to match the size of the latent Wavenet representation.
+
+
 # Music Translation
 PyTorch implementation of the method described in the [A Universal Music Translation Network](https://arxiv.org/abs/1805.07848).
 
