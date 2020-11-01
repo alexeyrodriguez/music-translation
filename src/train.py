@@ -124,6 +124,29 @@ parser.add_argument('--waveglow-config',
                     metavar='C', type=Path, help='Waveglow configuration file path')
 
 
+# Monkey patching for debugging
+def my_forward(self, model_output):
+    z, log_s_list, log_det_W_list = model_output
+    for i, log_s in enumerate(log_s_list):
+        if i == 0:
+            log_s_total = torch.sum(log_s)
+            log_det_W_total = log_det_W_list[i]
+        else:
+            log_s_total = log_s_total + torch.sum(log_s)
+            log_det_W_total += log_det_W_list[i]
+
+    print('\nXXXXXX')
+    print(log_s_total)
+    print(log_det_W_total)
+    loss = torch.sum(z*z)/(2*self.sigma*self.sigma) - log_s_total - log_det_W_total
+    print(torch.sum(z*z)/(2*self.sigma*self.sigma))
+    print(loss/(z.size(0)*z.size(1)*z.size(2)))
+    print('YYYYYY\n')
+    return loss/(z.size(0)*z.size(1)*z.size(2))
+
+glow.WaveGlowLoss.forward = my_forward
+
+
 
 class Trainer:
     def __init__(self, args):
