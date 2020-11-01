@@ -144,6 +144,7 @@ def my_forward(self, model_output):
     print('YYYYYY\n')
     return loss/(z.size(0)*z.size(1)*z.size(2))
 
+import glow
 glow.WaveGlowLoss.forward = my_forward
 
 
