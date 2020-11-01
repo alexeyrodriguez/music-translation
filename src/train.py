@@ -201,7 +201,6 @@ class Trainer:
 
         self.lr_manager = torch.optim.lr_scheduler.ExponentialLR(self.model_optimizer, args.lr_decay)
         self.lr_manager.last_epoch = self.start_epoch
-        self.lr_manager.step()
 
     def eval_batch(self, x, x_aug, dset_num):
         x, x_aug = x.float(), x_aug.float()
