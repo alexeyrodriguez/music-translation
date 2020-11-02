@@ -261,8 +261,12 @@ class H5Dataset(data.Dataset):
     def try_random_slice(self):
         h5file_path = random.choice(self.file_paths)
         if h5file_path in self.data_cache:
+            print('\nUsing data cache')
+            print(h5file_path)
             dataset = self.data_cache[h5file_path]
         else:
+            print('\nReading file')
+            print(h5file_path)
             dataset = self.read_h5_file(h5file_path)
         return self.read_wav_data(dataset, h5file_path)
 
