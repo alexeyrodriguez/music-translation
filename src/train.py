@@ -233,7 +233,7 @@ class Trainer:
         z_logits = self.discriminator(z)
 
         if self.use_waveglow_decoder:
-            x_orig = cuda_inv_mu_law(x)
+            x_orig = cuda_inv_mu_law(x + torch.rand_like(x))
             outputs = self.decoder((z, x_orig))
             recon_loss = self.criterion(outputs)
         else:
@@ -283,7 +283,13 @@ class Trainer:
             self.logger.debug(f'dset_num: {dset_num}')
 
         if self.use_waveglow_decoder:
-            x_orig = cuda_inv_mu_law(x)
+            # This dequantization was inspired from this repo and paper:
+            # https://github.com/chrischute/real-nvp/blob/master/models/real_nvp/real_nvp.py#L56
+            # Dequantization: https://arxiv.org/abs/1511.01844, Section 3.1
+            x_orig = cuda_inv_mu_law(x + torch.rand_like(x))
+            print('\n x')
+            print(x.min())
+            print(x.max())
             print('\n x_orig')
             print(x_orig.min())
             print(x_orig.max())
