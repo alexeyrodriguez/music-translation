@@ -283,10 +283,10 @@ class Trainer:
             self.logger.debug(f'dset_num: {dset_num}')
 
         if self.use_waveglow_decoder:
+            x_orig = cuda_inv_mu_law(x)
             print('\n x_orig')
             print(x_orig.min())
             print(x_orig.max())
-            x_orig = cuda_inv_mu_law(x)
             outputs = self.decoder((z, x_orig))
             recon_loss = self.criterion(outputs)
         else:
