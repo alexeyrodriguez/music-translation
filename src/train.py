@@ -266,6 +266,8 @@ class Trainer:
         z_logits = self.discriminator(z)
         discriminator_right = F.cross_entropy(z_logits, torch.tensor([dset_num] * x.size(0)).long().cuda()).mean()
         loss = discriminator_right * self.args.d_lambda
+        print(f'\ndiscriminator_right: {discriminator_right.data.item()}')
+        print(f'loss: {loss.data.item()}')
         self.d_optimizer.zero_grad()
         loss.backward()
         if self.args.grad_clip is not None:
@@ -302,6 +304,9 @@ class Trainer:
         self.losses_recon[dset_num].add(recon_loss.data.cpu().numpy().mean())
 
         loss = (recon_loss.mean() + self.args.d_lambda * discriminator_wrong)
+        print(f'\nrecon_loss: {recon_loss.mean().data.item()}')
+        print(f'discriminator_wrong: {discriminator_wrong.data.item()}')
+        print(f'loss: {loss.data.item()}')
 
         self.model_optimizer.zero_grad()
         loss.backward()
