@@ -289,6 +289,9 @@ class Trainer:
             # https://github.com/chrischute/real-nvp/blob/master/models/real_nvp/real_nvp.py#L56
             # Dequantization: https://arxiv.org/abs/1511.01844, Section 3.1
             x_orig = cuda_inv_mu_law(x + torch.rand_like(x))
+            print('\n z')
+            print(z.min())
+            print(z.max())
             print('\n x')
             print(x.min())
             print(x.max())
